@@ -1,0 +1,247 @@
+require('dotenv').config();
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
+  ],
+  partials: [Partials.Channel], // for DMs
+});
+
+const prefix = '?';
+const adminId = '1086618075203375195';
+const trades = new Map();
+
+function tradeKey(id1, id2) {
+  return [id1, id2].sort().join('-');
+}
+
+client.once('ready', () => {
+  console.log(`VaultSwap Bot is online as ${client.user.tag}`);
+});
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.content.startsWith(prefix)) return;
+
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+
+  if (command === 'ping') {
+    return message.reply('Pong!');
+  }
+
+  if (command === 'trade') {
+    const mention = message.mentions.users.first();
+    if (!mention) return message.reply('⚠️ Please mention a user to propose a trade to.');
+    if (mention.id === message.author.id) return message.reply('⚠️ You cannot trade with yourself.');
+
+    const details = args.slice(1).join(' ');
+    if (!details) return message.reply('⚠️ Please include trade details.');
+
+    const key = tradeKey(message.author.id, mention.id);
+    trades.set(key, {
+      proposerId: message.author.id,
+      proposeeId: mention.id,
+      details,
+      confirmed: new Set(),
+    });
+
+    return message.channel.send(
+      `🔁 **Trade Proposal:**\n${message.author.tag} wants to trade with ${mention.tag}:\n` +
+      `**${details}**\n\n` +
+      `Both users must confirm this trade with \`?confirmtrade @username\`.`
+    );
+  }
+
+  if (command === 'confirmtrade') {
+    const mention = message.mentions.users.first();
+    if (!mention) return message.reply('⚠️ Please mention the other user in the trade.');
+    if (mention.id === message.author.id) return message.reply('⚠️ You cannot confirm a trade with yourself.');
+
+    const key = tradeKey(message.author.id, mention.id);
+    const trade = trades.get(key);
+    if (!trade) return message.reply('⚠️ No trade proposal found between you two.');
+
+    trade.confirmed.add(message.author.id);
+
+    if (trade.confirmed.has(trade.proposerId) && trade.confirmed.has(trade.proposeeId)) {
+      try {
+        const admin = await client.users.fetch(adminId);
+        await admin.send(
+          `✅ Both users have confirmed the trade:\n` +
+          `<@${trade.proposerId}> and <@${trade.proposeeId}>\n` +
+          `Details: **${trade.details}**\n\n` +
+          `To finalize and notify users, use:\n` +
+          `\`?adminconfirmtrade <@${trade.proposerId}> <@${trade.proposeeId}>\``
+        );
+        return message.channel.send('✅ You confirmed the trade! Both users have confirmed, admin has been notified.');
+      } catch (err) {
+        console.error('Failed to message admin:', err);
+        return message.channel.send('✅ You confirmed the trade! Both users confirmed, but admin notification failed.');
+      }
+    } else {
+      return message.channel.send('✅ You confirmed the trade! Waiting for the other user to confirm.');
+    }
+  }
+
+  if (command === 'declinetrade') {
+    const mention = message.mentions.users.first();
+    if (!mention) return message.reply('⚠️ Please mention the user whose trade you are declining.');
+    if (mention.id === message.author.id) return message.reply('⚠️ You cannot decline your own trade.');
+
+    const key = tradeKey(message.author.id, mention.id);
+    const trade = trades.get(key);
+    if (!trade) return message.reply('⚠️ No trade proposal found between you two.');
+
+    if (trade.proposerId !== message.author.id && trade.proposeeId !== message.author.id) {
+      return message.reply('⚠️ You’re not a participant in this trade.');
+    }
+
+    trades.delete(key);
+    return message.channel.send(
+      `❌ The trade between ${message.author.tag} and ${mention.tag} has been declined and removed.`
+    );
+  }
+
+  if (command === 'adminconfirmtrade') {
+    if (message.author.id !== adminId) {
+      return message.reply('❌ You do not have permission to run this command.');
+    }
+
+    if (args.length !== 2) {
+      return message.reply('❗ Usage: `?adminconfirmtrade @user1 @user2`');
+    }
+
+    const user1 = message.mentions.users.at(0);
+    const user2 = message.mentions.users.at(1);
+    if (!user1 || !user2) return message.reply('⚠️ Please mention two valid users.');
+
+    const key = tradeKey(user1.id, user2.id);
+    const trade = trades.get(key);
+    if (!trade) return message.reply('⚠️ No trade found between these users.');
+    if (!(trade.confirmed.has(user1.id) && trade.confirmed.has(user2.id))) {
+      return message.reply('⚠️ Both users have not confirmed this trade yet.');
+    }
+
+    const formLink = 'https://docs.google.com/forms/d/e/1FAIpQLSd0Kx4IfRzeTAPy0Twup2zeYK6dqNecWsxCnO2r0EK8uG43bg/viewform';
+    const labelLink = 'https://vaultswap.square.site/submission-options';
+
+    try {
+      await user1.send(
+        `✅ Your trade with ${user2.tag} has been confirmed!\n\n` +
+        `📬 Submit your trade details here:\n${formLink}\n\n` +
+        `📦 Buy return labels:\n${labelLink}`
+      );
+      await user2.send(
+        `✅ Your trade with ${user1.tag} has been confirmed!\n\n` +
+        `📬 Submit your trade details here:\n${formLink}\n\n` +
+        `📦 Buy return labels:\n${labelLink}`
+      );
+      await message.reply('✅ Trade finalized and both users notified.');
+      trades.delete(key);
+    } catch (err) {
+      console.error('Failed to send DM to users:', err);
+      return message.reply('❌ Failed to send DM to one or both users. Make sure they have DMs enabled.');
+    }
+  }
+
+  if (command === 'help') {
+    return message.reply(
+      `📘 **VaultSwap Bot Commands**\n\n` +
+      `\`?trade @user [details]\` – Propose a trade\n` +
+      `\`?confirmtrade @user\` – Confirm a trade\n` +
+      `\`?declinetrade @user\` – Decline a trade\n` +
+      `\`?adminconfirmtrade @user1 @user2\` – (Admin only) Finalize a trade\n` +
+      `\`?insearchof [card name]\` – Post what you're looking for\n` +
+      `\`?info\` – Learn how VaultSwap works\n` +
+      `\`?resources\` – Get all the important VaultSwap links\n` +
+      `\`?feedback [your message]\` – Submit feedback\n` +
+      `\`?dispute @user [reason]\` – Flag a trade for review\n` +
+      `\`?tradehistory\` – View your active trades`  
+    );
+  }
+
+  if (command === 'info') {
+    return message.reply(
+      `🔒 **What is VaultSwap?**\n\n` +
+      `VaultSwap is a secure middleman service for trading Pokémon cards.\n` +
+      `Cards are submitted for authentication and then sent to the other trader after verification.\n\n`
+    );
+  }
+
+  if (command === 'resources') {
+    return message.reply(
+      `📦 **VaultSwap Resources**\n\n` +
+      `📬 Submit trade info: https://docs.google.com/forms/d/e/1FAIpQLSd0Kx4IfRzeTAPy0Twup2zeYK6dqNecWsxCnO2r0EK8uG43bg/viewform\n` +
+      `📦 Purchase return labels: https://vaultswap.square.site/submission-options\n` +
+      `🛠️ Learn the process: Use \`?info\`\n` +
+      `📘 View all commands: Use \`?help\``
+    );
+  }
+
+  if (command === 'insearchof') {
+    const query = args.join(' ');
+    if (!query) return message.reply('⚠️ Please describe what you’re looking for.');
+    return message.channel.send(`🔎 **In Search Of:** ${message.author.tag} is looking for: **${query}**`);
+  }
+
+  if (command === 'feedback') {
+    const feedbackText = args.join(' ');
+    if (!feedbackText) return message.reply('⚠️ Please provide feedback after the command.');
+    try {
+      const admin = await client.users.fetch(adminId);
+      await admin.send(`📝 **Feedback from ${message.author.tag}**:\n${feedbackText}`);
+      return message.reply('✅ Thank you! Your feedback has been sent.');
+    } catch (err) {
+      console.error('Failed to send feedback:', err);
+      return message.reply('❌ Could not send feedback to admin.');
+    }
+  }
+
+  if (command === 'dispute') {
+    const mention = message.mentions.users.first();
+    const reason = args.slice(1).join(' ');
+    if (!mention || !reason) {
+      return message.reply('⚠️ Usage: `?dispute @user [reason]`');
+    }
+    try {
+      const admin = await client.users.fetch(adminId);
+      await admin.send(`⚠️ **Dispute Alert**\nFrom: ${message.author.tag}\nAgainst: ${mention.tag}\nReason: ${reason}`);
+      return message.reply('⚠️ Your dispute has been sent to an admin. We will review it shortly.');
+    } catch (err) {
+      console.error('Failed to send dispute:', err);
+      return message.reply('❌ Could not notify admin about the dispute.');
+    }
+  }
+
+  if (command === 'tradehistory') {
+    const userId = message.author.id;
+    const history = [];
+
+    for (const [key, trade] of trades.entries()) {
+      if (key.includes(userId)) {
+        const otherId = key.split('-').find(id => id !== userId);
+        const confirmedBy = [...trade.confirmed].map(id => `<@${id}>`).join(', ');
+        history.push(`🔁 With <@${otherId}>: **${trade.details}**\n✅ Confirmed by: ${confirmedBy || 'No one yet'}`);
+      }
+    }
+
+    if (history.length === 0) {
+      return message.reply('📭 You have no active or pending trades.');
+    }
+
+    return message.reply(`📜 **Your Trade History:**\n\n${history.join('\n\n')}`);
+  }
+});
+
+client.login(process.env.TOKEN);
+
+
+
+
+
+
+

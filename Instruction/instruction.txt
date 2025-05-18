@@ -1,0 +1,27 @@
+To get your VaultSwap bot running:
+
+1. **Open Command Prompt**:
+   - Press `Windows + R` to open the "Run" dialog.
+   - Type `cmd` and press `Enter` to open Command Prompt.
+
+2. **Navigate to Your Bot Folder**:
+   - Type the following command to go to your bot folder:
+     ```
+     cd C:\Users\monro\VaultSwapBot
+     ```
+
+3. **Run Your Bot**:
+   - Once you're in the correct folder, type the following command to start your bot:
+     ```
+     node index.js
+     ```
+
+4. **Test the Bot**:
+   - After running `node index.js`, you should see something like:
+     ```
+     VaultSwap Bot is online as VaultSwap Bot#8624
+     ```
+   - Now, you can test your bot on Discord by typing commands like `?ping`, `?help`, or `?track [TrackingNumber] [LegalName]`.
+
+5. **Troubleshooting**:
+   - If you encounter any issues, check for any error messages in the Command Prompt and let me know.

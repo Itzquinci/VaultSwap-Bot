@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>VaultSwap GUI</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { color: #333; }
+    .section { margin-bottom: 20px; }
+    label { display: block; margin-top: 10px; }
+    input, textarea { width: 100%; padding: 8px; margin-top: 5px; }
+    button { margin-top: 15px; padding: 10px 15px; }
+  </style>
+</head>
+<body>
+  <h1>VaultSwap Trade Submission</h1>
+  <div class="section">
+    <label for="user">Discord Username</label>
+    <input type="text" id="user" placeholder="e.g. user#1234">
+
+    <label for="cardInfo">Card Info & Condition</label>
+    <textarea id="cardInfo" placeholder="e.g. Charizard VMAX - NM, sleeved"></textarea>
+
+    <label for="image">Image URL (optional)</label>
+    <input type="text" id="image" placeholder="Paste image link or local file path">
+
+    <button onclick="submitTrade()">Submit Trade Info</button>
+  </div>
+  <div id="response"></div>
+
+  <script>
+    function submitTrade() {
+      const user = document.getElementById('user').value;
+      const cardInfo = document.getElementById('cardInfo').value;
+      const image = document.getElementById('image').value;
+      const responseDiv = document.getElementById('response');
+
+      if (!user || !cardInfo) {
+        responseDiv.innerHTML = '<p style="color:red;">Please fill in all required fields.</p>';
+        return;
+      }
+
+      // Placeholder logic
+      console.log("Trade submitted:", { user, cardInfo, image });
+      responseDiv.innerHTML = '<p style="color:green;">Trade info submitted (console only for now).</p>';
+    }
+  </script>
+</body>
+</html>

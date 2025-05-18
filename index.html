@@ -1,0 +1,42 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>VaultSwap Trade Info</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, textarea { width: 100%; margin-bottom: 15px; padding: 10px; }
+    button { padding: 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>VaultSwap Trade Submission</h1>
+  <label>Discord Username</label>
+  <input type="text" id="username" placeholder="e.g. hitboi_q">
+
+  <label>Card Info & Condition</label>
+  <textarea id="cardinfo" rows="4" placeholder="e.g. Charizard VMAX - NM/M"></textarea>
+
+  <label>Image URL (optional)</label>
+  <input type="text" id="imageurl" placeholder="https://...">
+
+  <button onclick="submitForm()">Submit</button>
+  <p id="status"></p>
+
+  <script>
+    function submitForm() {
+      const username = document.getElementById('username').value;
+      const cardinfo = document.getElementById('cardinfo').value;
+      const imageurl = document.getElementById('imageurl').value;
+
+      if (!username || !cardinfo) {
+        document.getElementById('status').innerText = 'Please complete all required fields.';
+        return;
+      }
+
+      document.getElementById('status').innerText = '✅ Submitted (This is a demo – no data sent)';
+    }
+  </script>
+</body>
+</html>
